@@ -1,0 +1,3 @@
+The capital of France is Paris.
+The capital of Japan is Tokyo.
+KnowledgeFlow AI is built using FastAPI, SQLAlchemy, PostgreSQL, and Qdrant.
