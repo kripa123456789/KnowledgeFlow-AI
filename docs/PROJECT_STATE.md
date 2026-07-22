@@ -142,7 +142,7 @@ All AI assistants and developers MUST strictly enforce the following rules when 
 
 ## 8. Current Roadmap
 
-### Completed Milestones
+### Completed Milestones (Version 1.0 Release)
 
 - ✅ **Upload**: PDF, DOCX, TXT multi-format ingestion and file storage.
 - ✅ **Extraction**: Plain text extraction with character & page metadata parsing.
@@ -152,14 +152,13 @@ All AI assistants and developers MUST strictly enforce the following rules when 
 - ✅ **Qdrant**: High-dimensional vector indexing and storage.
 - ✅ **Semantic Search**: Vector similarity retrieval endpoint `/search`.
 - ✅ **RAG Answer Generation**: Grounded answer synthesis via `gemini-3.6-flash`, `POST /ask` endpoint, inline citations, and Streamlit UI integration.
-- ✅ **Conversation History**: Session-based multi-turn conversation memory, formatted prompt history, interactive `st.chat_message` UI, and Clear Conversation session control.
-
-### Remaining Future Milestones
-
-- **UI Improvements**: Enhancing Streamlit interface with chat UI elements, response streaming, and interactive document visualizers.
-- **Error Handling**: Adding resilient fallback strategies, rate-limiting handlers, and user-facing error messages for API quotas and connection drops.
-- **Authentication**: Implementing user login, tenant isolation, role-based access control (RBAC), and API security headers.
-- **Deployment**: Packaging services into production-ready Docker containers with Docker Compose orchestration.
+- ✅ **Conversation History**: Session-based multi-turn conversation memory, sliding window (6 messages), formatted prompt history, interactive `st.chat_message` UI, and Clear Conversation session control.
+- ✅ **Streaming Responses**: Real-time token streaming via Gemini `generate_content_stream`, FastAPI `StreamingResponse` (NDJSON), and Streamlit `st.write_stream` UI rendering.
+- ✅ **Prompt Optimizations**: Native `system_instruction` migration, adjacent chunk deduplication & merging, sliding window history memory.
+- ✅ **Streaming Error Handling**: Pre-stream connection verification, HTTP 429 structured error responses, and NDJSON mid-stream error events.
+- ✅ **Dynamic Model Config**: Environment variable configuration via `CHAT_MODEL` and `EMBEDDING_MODEL`.
+- ✅ **ChatGPT-Style UI**: Modern Streamlit sidebar, sticky `st.chat_input`, staged status loaders (`st.status`), and human-friendly error banners.
+- ✅ **Production Audit**: Repository cleanup, `.gitignore` & `.env.example` completeness, Docker Compose orchestration, and complete test suite verification.
 
 ---
 
@@ -169,19 +168,18 @@ All AI assistants and developers MUST strictly enforce the following rules when 
 - [x] Start FastAPI server (`uvicorn backend.main:app --reload`) and Streamlit app (`streamlit run frontend/app.py`).
 - [x] Open Streamlit UI (`http://localhost:8501`).
 - [x] Select a valid sample file (PDF, DOCX, or TXT).
-- [x] Click "Upload document".
+- [x] Click "Upload Document".
 - [x] Verify success message displaying uploaded filename.
-- [x] Verify document metadata row appears in Streamlit "Uploaded Documents" table.
+- [x] Verify document metadata row appears in Streamlit sidebar uploads summary.
 - [x] Confirm file exists on disk in `backend/uploads/`.
 - [x] Confirm extraction JSON output exists in `backend/data/`.
 - [x] Confirm document and chunk records exist in PostgreSQL `documents` and `chunks` tables.
 - [x] Confirm points exist in Qdrant collection `knowledgeflow_chunks`.
 
 ### Semantic Retrieval Verification
-- [x] Navigate to search section in Streamlit UI.
 - [x] Enter a search query relevant to the uploaded document text.
-- [x] Click "Search" / "Ask Question".
-- [x] Confirm top matching context chunks are returned (up to limit of 5).
+- [x] Submit question via `st.chat_input`.
+- [x] Confirm top matching context chunks are retrieved.
 - [x] Confirm similarity score is displayed for each chunk.
 - [x] Expand chunk view and verify chunk text corresponds to the input query.
 - [x] Verify offset ranges (`start_offset`, `end_offset`) match stored metadata.
@@ -194,11 +192,18 @@ All AI assistants and developers MUST strictly enforce the following rules when 
 - [x] Verify response handles out-of-scope queries gracefully when context is missing.
 
 ### Conversation Memory Verification
-- [ ] Submit a primary question in Streamlit UI.
-- [ ] Verify exchange appears in interactive chat view.
-- [ ] Submit a follow-up question referencing prior exchange.
-- [ ] Verify Gemini prompt receives formatted `Conversation History` and answers follow-up correctly.
-- [ ] Click "Clear Conversation" button and verify session chat messages reset.
+- [x] Submit a primary question in Streamlit UI.
+- [x] Verify exchange appears in interactive chat view.
+- [x] Submit a follow-up question referencing prior exchange.
+- [x] Verify Gemini prompt receives formatted `Conversation History` and answers follow-up correctly.
+- [x] Click "Clear Conversation" button and verify session chat messages reset.
+
+### Streaming Responses & Error Handling Verification
+- [x] Submit a question in Streamlit UI.
+- [x] Observe live token streaming in Streamlit UI (`st.write_stream`).
+- [x] Confirm citations and retrieved context chunks display cleanly after stream finishes.
+- [x] Test rapid queries to trigger Gemini rate limits and verify user-friendly HTTP 429 error banners instead of abrupt connection closures.
+
 
 
 ---

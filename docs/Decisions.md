@@ -14,3 +14,6 @@
 
 ## Decision 005: Use Gemini
 **Reason:** Gemini provides a strong foundation for both embedding generation and answer synthesis, allowing the product to support grounded, high-quality responses from retrieved context.
+
+## Decision 006: Omit Forced Auto-Scrolling in Streamlit UI
+**Reason:** Streamlit 1.37+ executes frontend components within isolated iframe containers and manages React virtual DOM re-renders via WebSockets. Attempting to force viewport auto-scrolling via custom JavaScript injection (`components.html` / `MutationObserver` / polling loops) causes severe DOM flickering, iframe unmounting deprecation warnings, and sidebar element instability while interfering with user manual scrolling. To guarantee absolute UI stability, zero DOM flickering, unconstrained user manual scrolling, and long-term framework compatibility, forced auto-scroll JavaScript injection was intentionally removed. Standard native Streamlit viewport scrolling behavior is preserved.

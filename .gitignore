@@ -8,7 +8,7 @@
 venv/
 ENV/
 
-# Python Cache & Artifacts
+# Python Cache & Build Artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -17,6 +17,9 @@ __pycache__/
 htmlcov/
 *.log
 
+# Scratch Scripts & Diagnostics
+scratch/
+
 # Project Uploads & Local Data Storage
 backend/uploads/*
 !backend/uploads/.gitkeep
@@ -24,7 +27,7 @@ backend/data/*
 !backend/data/.gitkeep
 
 # IDE & Editor Settings
-.vscode/settings.json
+.vscode/
 .idea/
 *.swp
 

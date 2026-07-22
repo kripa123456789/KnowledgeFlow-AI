@@ -3,15 +3,25 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.database.database import SessionLocal, init_db
 from backend.database.models import Chunk, Document
 from backend.processing.chunker import chunk_text
 from backend.processing.extractor import extract_text, save_extraction_result
-from backend.vector_store import generate_rag_answer, index_chunks, search_similar_chunks
+from backend.vector_store import (
+    clear_all_vectors,
+    delete_document_vectors,
+    generate_rag_answer,
+    index_chunks,
+    init_rag_stream,
+    search_similar_chunks,
+    stream_rag_answer,
+)
 
 app = FastAPI(title="KnowledgeFlow AI API", version="0.1.0")
+
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 DATA_DIR = Path(__file__).resolve().parent / "data"
 SUPPORTED_TYPES = {"pdf": "application/pdf", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "txt": "text/plain"}
@@ -23,6 +33,101 @@ init_db()
 def health_check() -> dict[str, str]:
     """Return the service health status."""
     return {"status": "ok"}
+
+
+@app.get("/documents")
+def list_documents() -> dict[str, object]:
+    """List all uploaded document metadata records from PostgreSQL."""
+    db = SessionLocal()
+    try:
+        docs = db.query(Document).order_by(Document.uploaded_at.desc()).all()
+        result = []
+        for doc in docs:
+            filepath = UPLOAD_DIR / doc.filename
+            size_bytes = filepath.stat().st_size if filepath.exists() else 0
+            result.append(
+                {
+                    "id": doc.id,
+                    "file_name": doc.filename,
+                    "file_type": doc.file_type,
+                    "pages": doc.pages,
+                    "characters": doc.characters,
+                    "chunk_count": doc.chunk_count,
+                    "size_bytes": size_bytes,
+                    "uploaded_at": doc.uploaded_at.isoformat(),
+                }
+            )
+        return {"documents": result, "count": len(result)}
+    finally:
+        db.close()
+
+
+@app.delete("/documents/{document_id}")
+def delete_document(document_id: int) -> dict[str, object]:
+    """Delete a document, its chunks from PostgreSQL, vectors from Qdrant, and files from disk."""
+    db = SessionLocal()
+    try:
+        doc = db.query(Document).filter(Document.id == document_id).first()
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        filename = doc.filename
+
+        # 1. Delete vectors from Qdrant
+        delete_document_vectors(document_id=doc.id, filename=filename)
+
+        # 2. Delete relational records from PostgreSQL
+        db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
+        db.delete(doc)
+        db.commit()
+
+        # 3. Delete raw file and extraction JSON from disk
+        raw_path = UPLOAD_DIR / filename
+        if raw_path.exists():
+            raw_path.unlink()
+
+        json_path = DATA_DIR / f"{filename}.json"
+        if json_path.exists():
+            json_path.unlink()
+
+        return {"message": f"Successfully deleted document '{filename}'", "document_id": document_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        db.close()
+
+
+@app.delete("/documents")
+def delete_all_documents() -> dict[str, object]:
+    """Delete all documents, chunks, vectors, and disk files."""
+    db = SessionLocal()
+    try:
+        # 1. Clear all vectors from Qdrant
+        clear_all_vectors()
+
+        # 2. Clear all relational records from PostgreSQL
+        db.query(Chunk).delete()
+        db.query(Document).delete()
+        db.commit()
+
+        # 3. Delete files from disk preserving .gitkeep
+        for file_path in UPLOAD_DIR.glob("*"):
+            if file_path.name != ".gitkeep" and file_path.is_file():
+                file_path.unlink()
+
+        for file_path in DATA_DIR.glob("*"):
+            if file_path.name != ".gitkeep" and file_path.is_file():
+                file_path.unlink()
+
+        return {"message": "Successfully deleted all documents and vector collections"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        db.close()
 
 
 @app.post("/upload")
@@ -128,10 +233,15 @@ class AskRequest(BaseModel):
 
 
 @app.post("/ask")
-def ask_rag_question(request: AskRequest) -> dict[str, object]:
-    """Synthesize a grounded answer based on retrieved vector context."""
+def ask_rag_question(request: AskRequest):
+    """Stream a grounded answer based on retrieved vector context."""
     try:
-        return generate_rag_answer(query=request.query, limit=request.limit, history=request.history)
+        generator = init_rag_stream(
+            query=request.query,
+            limit=request.limit,
+            history=request.history,
+        )
+        return StreamingResponse(generator, media_type="application/x-ndjson")
     except ClientError as exc:
         code = getattr(exc, "code", None)
         if code == 429 or "429" in str(exc):
@@ -139,6 +249,7 @@ def ask_rag_question(request: AskRequest) -> dict[str, object]:
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
 
 
 

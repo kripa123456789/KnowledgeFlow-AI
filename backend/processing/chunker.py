@@ -31,7 +31,7 @@ def chunk_text(text: str) -> list[dict[str, Any]]:
 
         chunk_text_content = normalized[start:end].strip()
         if not chunk_text_content:
-            start = end
+            start = end if end > start else start + 1
             continue
 
         chunks.append(
@@ -49,10 +49,20 @@ def chunk_text(text: str) -> list[dict[str, Any]]:
 
         next_start = max(0, end - OVERLAP)
         if boundaries:
-            boundary_before_start = max((value for value in boundaries if value < next_start), default=None)
+            boundary_before_start = max(
+                (value for value in boundaries if start < value <= next_start),
+                default=None,
+            )
             if boundary_before_start is not None:
                 next_start = boundary_before_start
 
-        start = next_start
+        if next_start <= start:
+            next_start = end
+
+        # Align next_start to word boundary if it lands in the middle of a word
+        while next_start > start and next_start < len(normalized) and normalized[next_start - 1].isalnum() and normalized[next_start].isalnum():
+            next_start -= 1
+
+        start = max(start + 1, next_start)
 
     return chunks
