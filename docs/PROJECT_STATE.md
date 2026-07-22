@@ -152,10 +152,10 @@ All AI assistants and developers MUST strictly enforce the following rules when 
 - ✅ **Qdrant**: High-dimensional vector indexing and storage.
 - ✅ **Semantic Search**: Vector similarity retrieval endpoint `/search`.
 - ✅ **RAG Answer Generation**: Grounded answer synthesis via `gemini-3.6-flash`, `POST /ask` endpoint, inline citations, and Streamlit UI integration.
+- ✅ **Conversation History**: Session-based multi-turn conversation memory, formatted prompt history, interactive `st.chat_message` UI, and Clear Conversation session control.
 
 ### Remaining Future Milestones
 
-- **Conversation History**: Managing multi-turn conversation state, session context persistence, and follow-up query rewriting.
 - **UI Improvements**: Enhancing Streamlit interface with chat UI elements, response streaming, and interactive document visualizers.
 - **Error Handling**: Adding resilient fallback strategies, rate-limiting handlers, and user-facing error messages for API quotas and connection drops.
 - **Authentication**: Implementing user login, tenant isolation, role-based access control (RBAC), and API security headers.
@@ -192,6 +192,14 @@ All AI assistants and developers MUST strictly enforce the following rules when 
 - [x] Confirm Gemini (`gemini-3.6-flash`) generates a coherent, grounded response.
 - [x] Confirm citations accurately reference source filename and chunk numbers.
 - [x] Verify response handles out-of-scope queries gracefully when context is missing.
+
+### Conversation Memory Verification
+- [ ] Submit a primary question in Streamlit UI.
+- [ ] Verify exchange appears in interactive chat view.
+- [ ] Submit a follow-up question referencing prior exchange.
+- [ ] Verify Gemini prompt receives formatted `Conversation History` and answers follow-up correctly.
+- [ ] Click "Clear Conversation" button and verify session chat messages reset.
+
 
 ---
 

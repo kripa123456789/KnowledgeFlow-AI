@@ -54,14 +54,53 @@ if uploads:
     st.dataframe(table, use_container_width=True)
 
 st.markdown("---")
-st.subheader("Ask KnowledgeFlow AI")
-query = st.text_input("Enter your question:")
+st.session_state.setdefault("messages", [])
+
+col_title, col_clear = st.columns([4, 1])
+with col_title:
+    st.subheader("Ask KnowledgeFlow AI")
+with col_clear:
+    if st.button("Clear Conversation"):
+        st.session_state["messages"] = []
+        st.rerun()
+
+# Render prior conversation history
+for msg in st.session_state["messages"]:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+        if msg.get("citations"):
+            st.markdown("**Sources / Citations:**")
+            for cite in msg["citations"]:
+                st.markdown(
+                    f"- **{cite.get('filename', 'Unknown')}** (Chunk {cite.get('chunk_id', 0)}, Offsets: {cite.get('start_offset', 0)}-{cite.get('end_offset', 0)}, Score: {cite.get('score', 0.0):.4f})"
+                )
+        if msg.get("results"):
+            with st.expander("Retrieved Context Chunks"):
+                for i, hit in enumerate(msg["results"], 1):
+                    payload = hit.get("payload", {})
+                    score = hit.get("score", 0.0)
+                    chunk_text = payload.get("chunk_text", "")
+                    filename = payload.get("filename", "Unknown")
+                    chunk_id = payload.get("chunk_id", 0)
+
+                    st.markdown(f"**Chunk {i}** (Similarity Score: {score:.4f}) - Source: *{filename}* (Chunk {chunk_id})")
+                    st.write(chunk_text)
+                    st.caption(f"Offsets: {payload.get('start_offset', 0)} - {payload.get('end_offset', 0)}")
+
+# Question input form
+query = st.text_input("Enter your question:", key="user_question_input")
 if st.button("Ask Question") and query.strip():
     try:
         backend_ask_url = API_URL.replace("/upload", "/ask")
+        history_payload = [
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state["messages"]
+            if m.get("role") in ("user", "assistant")
+        ]
+
         response = requests.post(
             backend_ask_url,
-            json={"query": query, "limit": 5},
+            json={"query": query.strip(), "limit": 5, "history": history_payload},
             timeout=30,
         )
         response.raise_for_status()
@@ -71,34 +110,19 @@ if st.button("Ask Question") and query.strip():
         citations = data.get("citations", [])
         results = data.get("results", [])
 
-        st.markdown("### Question")
-        st.write(query)
-
-        st.markdown("### Answer")
-        st.write(answer)
-
-        if citations:
-            st.markdown("### Sources / Citations")
-            for cite in citations:
-                st.markdown(
-                    f"- **{cite.get('filename', 'Unknown')}** (Chunk {cite.get('chunk_id', 0)}, Offsets: {cite.get('start_offset', 0)}-{cite.get('end_offset', 0)}, Score: {cite.get('score', 0.0):.4f})"
-                )
-
-        if results:
-            st.markdown("### Retrieved Context Chunks")
-            for i, hit in enumerate(results, 1):
-                payload = hit.get("payload", {})
-                score = hit.get("score", 0.0)
-                chunk_text = payload.get("chunk_text", "")
-                filename = payload.get("filename", "Unknown")
-                chunk_id = payload.get("chunk_id", 0)
-
-                with st.expander(f"Chunk {i} (Similarity Score: {score:.4f}) - Source: {filename} (Chunk {chunk_id})"):
-                    st.write(chunk_text)
-                    st.caption(f"Offsets: {payload.get('start_offset', 0)} - {payload.get('end_offset', 0)}")
-        elif not answer:
-            st.info("No matching context chunks or answer found.")
+        # Record user query and assistant response in session memory
+        st.session_state["messages"].append({"role": "user", "content": query.strip()})
+        st.session_state["messages"].append(
+            {
+                "role": "assistant",
+                "content": answer,
+                "citations": citations,
+                "results": results,
+            }
+        )
+        st.rerun()
     except requests.RequestException as exc:
         st.error(f"Request failed: {exc}")
+
 
 

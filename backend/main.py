@@ -124,13 +124,14 @@ from google.genai.errors import ClientError
 class AskRequest(BaseModel):
     query: str = Field(..., min_length=1, description="The query string to ask")
     limit: int = Field(5, ge=1, le=50, description="The maximum number of context chunks to retrieve")
+    history: list[dict[str, str]] = Field(default_factory=list, description="Previous conversation message objects")
 
 
 @app.post("/ask")
 def ask_rag_question(request: AskRequest) -> dict[str, object]:
     """Synthesize a grounded answer based on retrieved vector context."""
     try:
-        return generate_rag_answer(query=request.query, limit=request.limit)
+        return generate_rag_answer(query=request.query, limit=request.limit, history=request.history)
     except ClientError as exc:
         code = getattr(exc, "code", None)
         if code == 429 or "429" in str(exc):

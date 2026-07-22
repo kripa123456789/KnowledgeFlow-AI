@@ -111,7 +111,12 @@ def search_similar_chunks(query: str, limit: int = 5, collection_name: str = COL
     return hits
 
 
-def generate_rag_answer(query: str, limit: int = 5, collection_name: str = COLLECTION_NAME) -> dict[str, Any]:
+def generate_rag_answer(
+    query: str,
+    limit: int = 5,
+    collection_name: str = COLLECTION_NAME,
+    history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """Retrieve matching document chunks and synthesize a grounded answer using Gemini LLM."""
     hits = search_similar_chunks(query=query, limit=limit, collection_name=collection_name)
 
@@ -146,6 +151,15 @@ def generate_rag_answer(query: str, limit: int = 5, collection_name: str = COLLE
         )
 
     formatted_context = "\n\n---\n\n".join(context_blocks)
+
+    formatted_history = ""
+    if history:
+        history_lines = []
+        for msg in history:
+            role_label = "User" if msg.get("role") in ("user", "human") else "Assistant"
+            history_lines.append(f"{role_label}: {msg.get('content', '')}")
+        formatted_history = "Conversation History:\n" + "\n".join(history_lines) + "\n\n"
+
     prompt = (
         "You are an enterprise knowledge assistant. Answer the user's question based ONLY on the provided context chunks below.\n\n"
         "Rules:\n"
@@ -153,6 +167,7 @@ def generate_rag_answer(query: str, limit: int = 5, collection_name: str = COLLE
         "- Do NOT use external knowledge, make assumptions, or extrapolate beyond the provided text.\n"
         '- If the context does not contain enough information to answer the question, state: "I cannot answer this question based on the provided documents."\n'
         "- Cite your sources using [Source: <filename>, Chunk: <chunk_id>] inline when presenting information.\n\n"
+        f"{formatted_history}"
         f"Context:\n{formatted_context}\n\n"
         f"Question: {query}"
     )
@@ -177,4 +192,5 @@ def generate_rag_answer(query: str, limit: int = 5, collection_name: str = COLLE
         "citations": citations,
         "results": hits,
     }
+
 
